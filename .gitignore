@@ -1,0 +1,22 @@
+# Byte-compiled / optimized / DLL files
+*.py[cod]
+.vscode/
+
+# environment files
+.env
+.env.local
+.env.*.local
+./venv/*
+.venv/*
+# ignore virtual environment folders
+venv/
+
+
+# Python cache files
+__pycache__/
+*.pyc
+.py
+build/
+
+# Backend
+backend/__pycache__/

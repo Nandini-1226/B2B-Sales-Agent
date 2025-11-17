@@ -1,0 +1,39 @@
+version: '3.8'
+services:
+  backend:
+    build: ./backend
+    restart: always
+    ports:
+      - 5000:5000
+    depends_on:
+      - postgres
+      - elasticsearch
+    volumes:
+      - backend:/app
+    environment:
+      - DATABASE_URL=postgresql://postgres:postgres@db:5432/sales_agent
+      - ELASTICSEARCH_URL=http://elasticsearch:9200
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:7.10.1
+    environment:
+      - discovery.type=single-node
+    ports:
+      - 9200:9200
+    volumes:
+      - elasticsearch:/usr/share/elasticsearch/data
+  postgres:
+    image: postgres
+    restart: always
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: sales_agent_db
+    volumes:
+      - postgres:/var/lib/postgresql/data
+      - ./init.sql:/docker-entrypoint-initdb.d/init.sql
+    ports:
+      - 5432:5432
+  volumes:
+    backend:
+    elasticsearch:
+    postgres:

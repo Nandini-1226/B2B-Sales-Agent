@@ -1,0 +1,14 @@
+# General dependencies
+python-dotenv
+fastapi
+uvicorn # ASGI server for FastAPI
+pydantic
+
+
+# Database dependencies
+asyncpg
+sqlalchemy
+
+# AI dependencies
+google-genai
+langchain
