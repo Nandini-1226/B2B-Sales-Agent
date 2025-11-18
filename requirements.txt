@@ -1,14 +1,24 @@
-# General dependencies
-python-dotenv
-fastapi
-uvicorn # ASGI server for FastAPI
-pydantic
+# Runtime
+python-dotenv>=0.21.0
+fastapi>=0.95.0
+uvicorn[standard]>=0.22.0     # ASGI server
 
+# Validation
+pydantic>=1.10.0
 
-# Database dependencies
-asyncpg
-sqlalchemy
+# Database / async
+asyncpg>=0.27.0
+sqlalchemy>=1.4.0            # SQLAlchemy with asyncio support
 
-# AI dependencies
+# HTTP clients
+httpx>=0.24.0                # async http client
+
+# AI / LLM
 google-genai
-langchain
+langchain         # pin to a major/minor you test against
+
+# Type helpers
+typing_extensions>=4.5.0
+
+# Frontend
+streamlit

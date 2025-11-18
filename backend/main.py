@@ -2,6 +2,7 @@ from fastapi import FastAPI
 from contextlib import asynccontextmanager
 import uuid
 from services.postgres_service import PostgresService
+from models.pydantic_model import MessageIn
 
 # Initialize service
 db_service = PostgresService()
@@ -24,24 +25,25 @@ async def create_session(title: str = "New Chat"):
     return {"session_id": str(session_id)}
 
 @app.post("/chat/message")
-async def save_message(session_id: str, role: str, content: str):
+async def save_message(json: dict):
     """Save user or assistant message"""
-    await db_service.add_message(uuid.UUID(session_id), role, content)
+    message_in = MessageIn.model_validate(json)
+    await db_service.add_message(uuid.UUID(json.get("session_id")), json.get("role"), json.get("content"))
     return {"status": "saved"}
 
-@app.get("/leads/{session_id}")
+@app.get("/sessions/{session_id}")
 async def get_session_messages(session_id: str):
     """Retrieve all messages from a session"""
     messages = await db_service.get_session_messages(uuid.UUID(session_id))
     return {"messages": messages}
 
-@app.get("/leads")
+@app.get("/sessions")
 async def list_sessions():
     """Get all sessions for sidebar"""
     sessions = await db_service.get_all_sessions()
     return {"sessions": sessions}
 
-@app.delete("/leads/{session_id}")
+@app.delete("/sessions/{session_id}")
 async def delete_session(session_id: str):
     """Delete a session"""
     await db_service.delete_session(uuid.UUID(session_id))

@@ -1,15 +1,16 @@
 from dotenv import load_dotenv
-import os
-# set openai_api_key in your environment variables to use the client
-load_dotenv()
-os.environ["GEMINI_API_KEY"] = os.getenv("gemini_api_key")
-
 from google import genai
 
-# The client gets the API key from the environment variable `GEMINI_API_KEY`.
-client = genai.Client()
+class GeminiAI():
+    def __init__(self):        
+        # set openai_api_key in your environment variables to use the client
+        load_dotenv()
 
-response = client.models.generate_content(
-    model="gemini-2.5-flash-lite", contents="Explain how AI works in a few words"
-)
-print(response.text)
+        # The client gets the API key from the environment variable `GEMINI_API_KEY`.
+        self.client = genai.Client()
+
+    def generate_content(self, contents: str) -> genai.Response:
+        response = self.client.models.generate_content(
+            model="gemini-2.5-flash-lite", contents=contents
+        )
+        return response.text

@@ -1,22 +1,65 @@
 # Byte-compiled / optimized / DLL files
 *.py[cod]
-.vscode/
+*.pyo
+*.pyd
+__pycache__/
+*.pyc
 
-# environment files
+# Virtual environments
+.venv/
+venv/
+env/
+ENV/
+venv.bak/
+*/venv/
+pip-wheel-metadata/
+
+# Environment and secrets
 .env
 .env.local
 .env.*.local
-./venv/*
-.venv/*
-# ignore virtual environment folders
-venv/
+.envrc
+.python-version
 
+# Editor/IDE
+.vscode/
+.idea/
+*.sublime-project
+*.sublime-workspace
 
-# Python cache files
-__pycache__/
-*.pyc
-.py
+# OS files
+.DS_Store
+Thumbs.db
+
+# Test / coverage
+.pytest_cache/
+.coverage
+coverage.xml
+htmlcov/
+
+# Type checking / caches
+.mypy_cache/
+.pytype/
+
+# Packaging / build
 build/
+dist/
+*.egg-info/
 
-# Backend
+# Notebook checkpoints
+.ipynb_checkpoints/
+
+# Database, runtime data and local-only folders
+elasticsearch-data/
+*.sqlite3
+instance/
+data/
+
+# Logs and runtime files
+*.log
+logs/
+*.pid
+*.sock
+
+# Backend pycache (explicit project path)
 backend/__pycache__/
