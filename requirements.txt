@@ -9,6 +9,7 @@ pydantic>=1.10.0
 # Database / async
 asyncpg>=0.27.0
 sqlalchemy>=1.4.0            # SQLAlchemy with asyncio support
+elasticsearch>=8.0.0        # Elasticsearch client
 
 # HTTP clients
 httpx>=0.24.0                # async http client

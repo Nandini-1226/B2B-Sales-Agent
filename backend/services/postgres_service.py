@@ -11,7 +11,7 @@ class PostgresService:
         """Initialize connection pool when app starts"""
         db_url = os.getenv(
             "DATABASE_URL",
-            "postgresql://postgres:postgres@db:5432/sales_agent"
+            "postgresql://postgres:postgres@localhost:5432/sales_agent"
         )
         self.pool = await asyncpg.create_pool(db_url)
     
@@ -29,6 +29,24 @@ class PostgresService:
                 session_id, title
             )
         return session_id
+
+    async def create_session_with_id(self, session_id: uuid.UUID, title: str = "Imported Chat") -> uuid.UUID:
+        """Create a session with a specific UUID if it doesn't already exist."""
+        async with self.pool.acquire() as conn:
+            await conn.execute(
+                "INSERT INTO sessions (session_id, title) VALUES ($1, $2) ON CONFLICT (session_id) DO NOTHING",
+                session_id, title
+            )
+        return session_id
+
+    async def session_exists(self, session_id: uuid.UUID) -> bool:
+        """Return True if a session with the given id exists."""
+        async with self.pool.acquire() as conn:
+            row = await conn.fetchrow(
+                "SELECT 1 FROM sessions WHERE session_id = $1",
+                session_id
+            )
+        return row is not None
     
     async def add_message(self, session_id: uuid.UUID, role: str, content: str):
         """Save a message to database"""
