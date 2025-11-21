@@ -16,10 +16,12 @@ httpx>=0.24.0                # async http client
 
 # AI / LLM
 google-genai
-langchain         # pin to a major/minor you test against
 
 # Type helpers
 typing_extensions>=4.5.0
 
 # Frontend
 streamlit
+
+# Vector operations
+numpy>=1.21.0

@@ -22,6 +22,8 @@ class PostgresService:
     
     async def create_session(self, title: str = "New Chat") -> uuid.UUID:
         """Create new conversation session, return session_id"""
+        if not self.pool:
+            raise RuntimeError("Database connection not initialized. Call connect() first.")
         session_id = uuid.uuid4()
         async with self.pool.acquire() as conn:
             await conn.execute(
@@ -32,6 +34,8 @@ class PostgresService:
 
     async def create_session_with_id(self, session_id: uuid.UUID, title: str = "Imported Chat") -> uuid.UUID:
         """Create a session with a specific UUID if it doesn't already exist."""
+        if not self.pool:
+            raise RuntimeError("Database connection not initialized. Call connect() first.")
         async with self.pool.acquire() as conn:
             await conn.execute(
                 "INSERT INTO sessions (session_id, title) VALUES ($1, $2) ON CONFLICT (session_id) DO NOTHING",
@@ -41,6 +45,8 @@ class PostgresService:
 
     async def session_exists(self, session_id: uuid.UUID) -> bool:
         """Return True if a session with the given id exists."""
+        if not self.pool:
+            raise RuntimeError("Database connection not initialized. Call connect() first.")
         async with self.pool.acquire() as conn:
             row = await conn.fetchrow(
                 "SELECT 1 FROM sessions WHERE session_id = $1",
@@ -50,6 +56,8 @@ class PostgresService:
     
     async def add_message(self, session_id: uuid.UUID, role: str, content: str):
         """Save a message to database"""
+        if not self.pool:
+            raise RuntimeError("Database connection not initialized. Call connect() first.")
         async with self.pool.acquire() as conn:
             await conn.execute(
                 "INSERT INTO messages (session_id, role, content) VALUES ($1, $2, $3)",
@@ -58,6 +66,8 @@ class PostgresService:
     
     async def get_session_messages(self, session_id: uuid.UUID) -> list:
         """Retrieve all messages for a session, ordered chronologically"""
+        if not self.pool:
+            raise RuntimeError("Database connection not initialized. Call connect() first.")
         async with self.pool.acquire() as conn:
             rows = await conn.fetch(
                 """SELECT role, content, created_at 
@@ -70,6 +80,8 @@ class PostgresService:
     
     async def get_all_sessions(self) -> list:
         """Retrieve all session metadata (for sidebar)"""
+        if not self.pool:
+            raise RuntimeError("Database connection not initialized. Call connect() first.")
         async with self.pool.acquire() as conn:
             rows = await conn.fetch(
                 """SELECT session_id, title, created_at, updated_at 
@@ -80,6 +92,8 @@ class PostgresService:
     
     async def delete_session(self, session_id: uuid.UUID):
         """Delete a session and all its messages"""
+        if not self.pool:
+            raise RuntimeError("Database connection not initialized. Call connect() first.")
         async with self.pool.acquire() as conn:
             await conn.execute(
                 "DELETE FROM sessions WHERE session_id = $1",
