@@ -107,6 +107,8 @@ def bulk_index_from_csv(csv_path: str, index_name: Optional[str] = None):
         create_index_for_fields(index_name, headers, sample_rows=rows[:20])
 
         actions = []
+        skipped_count = 0
+        
         for i, row in enumerate(rows):
             src = {}
             for h in headers:
@@ -121,6 +123,42 @@ def bulk_index_from_csv(csv_path: str, index_name: Optional[str] = None):
                         src[h] = val
                 else:
                     src[h] = val
+
+            # Filter out products with invalid prices
+            price_field = None
+            price_value = None
+            
+            # Find price field (check common price field names)
+            for field_name in ['price', 'cost', 'amount', 'value']:
+                if field_name in src:
+                    price_field = field_name
+                    price_value = src[field_name]
+                    break
+            
+            # Skip product if price is invalid (0, null, empty, or not found)
+            should_skip = False
+            if price_field is None:
+                should_skip = True
+                print(f"Skipping product '{src.get('name', 'Unknown')}': No price field found")
+            elif price_value is None or price_value == "" or price_value == "0" or price_value == 0:
+                should_skip = True
+                print(f"Skipping product '{src.get('name', 'Unknown')}': Invalid price ({price_value})")
+            elif isinstance(price_value, (int, float)) and price_value <= 0:
+                should_skip = True
+                print(f"Skipping product '{src.get('name', 'Unknown')}': Invalid price ({price_value})")
+            elif isinstance(price_value, str):
+                try:
+                    numeric_price = float(price_value)
+                    if numeric_price <= 0:
+                        should_skip = True
+                        print(f"Skipping product '{src.get('name', 'Unknown')}': Invalid price ({price_value})")
+                except (ValueError, TypeError):
+                    should_skip = True
+                    print(f"Skipping product '{src.get('name', 'Unknown')}': Invalid price format ({price_value})")
+            
+            if should_skip:
+                skipped_count += 1
+                continue
 
             # Canonicalize name and description fields
             name_aliases = ["name", "product", "title", "product_name", "model", "item"]
@@ -161,12 +199,17 @@ def bulk_index_from_csv(csv_path: str, index_name: Optional[str] = None):
         if actions:
             helpers.bulk(es, actions)
         
-        print(f"Indexed {len(rows)} documents from {csv_path}")
+        total_products = len(rows)
+        indexed_products = total_products - skipped_count
+        print(f"Indexed {indexed_products} documents from {csv_path} (skipped {skipped_count} products with invalid prices)")
 
 
-def simple_text_search(query: str, top_k: int = 5, index_name: Optional[str] = None) -> List[Dict]:
+def simple_text_search(query: str, top_k: int = 5, category: str = None) -> List[Dict]:
     """Perform text-based search using multi-match query."""
-    idx = index_name or "products_*"
+    if category and category != "general":
+        idx = f"products_{category}"
+    else:
+        idx = "products_*"
     
     body = {
         "size": top_k,
@@ -181,15 +224,21 @@ def simple_text_search(query: str, top_k: int = 5, index_name: Optional[str] = N
     try:
         res = es.search(index=idx, body=body)
         hits = [hit["_source"] for hit in res["hits"]["hits"]]
+        print(f"Text search in '{idx}' for '{query}': {len(hits)} results")
+        for i, hit in enumerate(hits[:3]):
+            print(f"  Text result {i+1}: {hit.get('name', 'Unknown')} (score: {res['hits']['hits'][i]['_score']})")
         return hits
     except Exception as e:
         print(f"Text search failed: {e}")
         return []
 
 
-def vector_search(query: str, top_k: int = 5, index_name: Optional[str] = None) -> List[Dict]:
+def vector_search(query: str, top_k: int = 5, category: str = None) -> List[Dict]:
     """Perform vector similarity search."""
-    idx = index_name or "products_*"
+    if category and category != "general":
+        idx = f"products_{category}"
+    else:
+        idx = "products_*"
     
     query_vector = _generate_mock_vector(query)
     
@@ -209,6 +258,9 @@ def vector_search(query: str, top_k: int = 5, index_name: Optional[str] = None) 
     try:
         res = es.search(index=idx, body=body)
         hits = [hit["_source"] for hit in res["hits"]["hits"]]
+        print(f"Vector search in '{idx}' for '{query}': {len(hits)} results")
+        for i, hit in enumerate(hits[:3]):
+            print(f"  Vector result {i+1}: {hit.get('name', 'Unknown')} (score: {res['hits']['hits'][i]['_score']})")
         return hits
     except Exception as e:
         print(f"Vector search failed: {e}")
@@ -256,21 +308,36 @@ def rrf_fuse(text_results: List[Dict], vector_results: List[Dict], k: int = 60) 
     return fused
 
 
-def hybrid_search(query: str, top_k: int = 5, index_name: Optional[str] = None) -> List[Dict]:
+def hybrid_search(query: str, top_k: int = 5, category: str = None) -> List[Dict]:
     """Perform hybrid search combining text and vector search with RRF."""
-    text_results = simple_text_search(query, top_k * 2, index_name)
-    vector_results = vector_search(query, top_k * 2, index_name)
+    print(f"\n=== HYBRID SEARCH ===")
+    print(f"Query: '{query}'")
+    print(f"Category: '{category}'")
+    print(f"Top K: {top_k}")
+    
+    text_results = simple_text_search(query, top_k * 2, category)
+    vector_results = vector_search(query, top_k * 2, category)
     
     if not text_results and not vector_results:
+        print("No results from either search method")
         return []
     
     if not text_results:
+        print("Using vector results only")
         return vector_results[:top_k]
     
     if not vector_results:
+        print("Using text results only")
         return text_results[:top_k]
     
     fused_results = rrf_fuse(text_results, vector_results)
+    print(f"RRF fused {len(text_results)} text + {len(vector_results)} vector = {len(fused_results)} final results")
+    
+    # Log top results with RRF scores
+    print("\nTop RRF Results:")
+    for i, result in enumerate(fused_results[:3]):
+        print(f"  {i+1}. {result.get('name', 'Unknown')} - Fields: {list(result.keys())}")
+    
     return fused_results[:top_k]
 
 

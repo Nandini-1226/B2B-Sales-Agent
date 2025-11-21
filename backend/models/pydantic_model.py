@@ -41,6 +41,9 @@ class ProductMatch(BaseModel):
     price: Optional[float] = 0.0
     score: Optional[float] = 0.0
     
+    class Config:
+        extra = "allow"  # Allow additional fields from different product categories
+    
 class IntentClassification(BaseModel):
     intent: str  # "product_search", "requirement_clarification", "quote_request", "general"
     confidence: float

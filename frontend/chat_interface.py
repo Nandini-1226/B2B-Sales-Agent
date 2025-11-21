@@ -42,11 +42,6 @@ with st.sidebar:
         if res.status_code == 200:
             sessions = res.json().get("sessions", [])
             
-            # Show current stage
-            stage_emoji = "🔍" if st.session_state.current_stage == "discovery" else "💰"
-            stage_name = st.session_state.current_stage.title()
-            st.info(f"{stage_emoji} Current Stage: **{stage_name}**")
-            
             if sessions:
                 st.subheader("Previous Sessions")
                 for sess in sessions[-10:]:  # Show last 10 sessions
@@ -123,6 +118,9 @@ if prompt := st.chat_input("Type your message here..."):
             # Update session state
             if data.get("session_id"):
                 st.session_state.session_id = data["session_id"]
+            # Log stage changes but don't show in UI
+            if stage != st.session_state.current_stage:
+                print(f"Stage changed from {st.session_state.current_stage} to {stage}")
             st.session_state.current_stage = stage
             
             # Add assistant response to history
@@ -132,16 +130,33 @@ if prompt := st.chat_input("Type your message here..."):
             with st.chat_message("assistant"):
                 st.write(reply)
                 
-                # Show products if any
-                if products:
+                # Show products if any with enhanced display
+                if products and stage != "quote":
                     st.subheader("🛍️ Recommended Products:")
-                    for product in products:
-                        with st.expander(f"📦 {product.get('name', 'Unknown Product')}"):
-                            if product.get('description'):
-                                st.write(f"**Description:** {product['description']}")
-                            if product.get('price', 0) > 0:
-                                st.write(f"**Price:** ${product['price']:,.2f}")
-                
+                    for idx, product in enumerate(products):
+                        product_name = product.get('name', 'Unknown Product')
+                        if not product.get('price'): continue
+                        with st.expander(f"📦 {product_name}", expanded=(idx == 0)):
+                            
+                            # Create two columns for better layout
+                            col1, col2 = st.columns([2, 1])
+                            
+                            with col1:
+                                if product.get('description'):
+                                    st.write(f"**Description:** {product['description']}")
+                                
+                                # Display all product fields (category-specific features)
+                                excluded_fields = {'name', 'description', 'price', 'score', 'description_vector'}
+                                for key, value in product.items():
+                                    if key not in excluded_fields and value and str(value).strip():
+                                        # Format field names nicely
+                                        display_key = key.replace('_', ' ').title()
+                                        st.write(f"**{display_key}:** {value}")
+                            
+                            with col2:
+                                if product.get('price') and float(product.get('price', 0)) > 0:
+                                    price_val = float(product['price'])
+                                    st.metric("💰 Price", f"${price_val:,.2f}")
             _maybe_rerun()
             
         else:
@@ -153,34 +168,6 @@ if prompt := st.chat_input("Type your message here..."):
         st.error("🔴 Cannot connect to backend. Make sure the server is running.")
     except Exception as e:
         st.error(f"❌ Unexpected error: {e}")
-
-# Handle auto-question (for suggested questions)
-if hasattr(st.session_state, 'auto_question'):
-    auto_q = st.session_state.auto_question
-    delattr(st.session_state, 'auto_question')
-    
-    # Add to history and process
-    st.session_state.history.append({"role": "user", "content": auto_q})
-    
-    try:
-        payload = {
-            "session_id": st.session_state.session_id,
-            "content": auto_q,
-            "role": "user"
-        }
-        
-        response = requests.post(f"{BACKEND}/chat/message", json=payload)
-        if response.status_code == 200:
-            data = response.json()
-            reply = data.get("reply", "Sorry, I couldn't process that.")
-            st.session_state.history.append({"role": "assistant", "content": reply})
-            if data.get("stage"):
-                st.session_state.current_stage = data["stage"]
-    except:
-        pass  # Fail silently for auto questions
-    
-    _maybe_rerun()
-
 
 # Health check indicator
 try:

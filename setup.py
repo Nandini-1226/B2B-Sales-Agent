@@ -7,7 +7,9 @@ This script helps you set up and run the B2B Sales Agent MVP.
 import os
 import sys
 import subprocess
-import time
+import dotenv
+
+dotenv.load_dotenv()
 
 def check_python_version():
     """Check if Python version is suitable."""

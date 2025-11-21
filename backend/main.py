@@ -9,6 +9,12 @@ from backend.models.pydantic_model import MessageIn, ConversationResponse
 from backend.agents.conversation_manager import handle_user_message
 import asyncpg
 
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
+
 # Require DATABASE_URL to be set
 DATABASE_URL = os.getenv("DATABASE_URL")
 if not DATABASE_URL:
@@ -86,7 +92,6 @@ async def process_message(payload: dict):
             
             response = await handle_user_message(
                 session_id=session_id,
-                user_id="default_user",  # No user system for MVP
                 content=content,
                 db_service=db_service  # Pass the connected database service
             )

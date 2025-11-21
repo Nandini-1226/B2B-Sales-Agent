@@ -6,11 +6,25 @@ from backend.models.pydantic_model import ConversationStage, ConversationState, 
 import uuid
 import json
 import asyncio
+import logging
+import re
 
 # Initialize AI model
 llm = GeminiAI()
 
 # Prompt templates
+CATEGORY_DETECTION_PROMPT = """
+Detect the product category from the user's message. Available categories are:
+cpu, external-hard-drive, headphones, internal-hard-drive, keyboard, memory, monitor, motherboard, mouse, sound-card, speakers, ups, video-card, webcam, case, cpu-cooler, power-supply
+
+User Message: {message}
+
+Return ONLY a JSON object with this format:
+{{"category": "cpu", "confidence": 0.9}}
+
+If no clear category is detected, return {{"category": "general", "confidence": 0.5}}
+"""
+
 INTENT_PROMPT = """
 Analyze the user's message and classify their intent. Consider the conversation history for context.
 
@@ -93,19 +107,62 @@ async def classify_intent(message: str, history: str = "") -> IntentClassificati
             entities={}
         )
 
+async def detect_category(message: str) -> dict:
+    """Detect product category from user message."""
+    try:
+        prompt = format_prompt(CATEGORY_DETECTION_PROMPT, message=message)
+        result = await asyncio.to_thread(llm.generate_content, prompt)
+        category_data = json.loads(result.strip())
+        logging.info(f"Category detection: {category_data}")
+        return category_data
+    except Exception as e:
+        logging.error(f"Category detection error: {e}")
+        return {"category": "general", "confidence": 0.5}
+
 async def handle_discovery_stage(state: ConversationState, message: str) -> ConversationResponse:
     """Handle discovery stage conversation."""
-    # Search for products
-    products = await hybrid_search(message, top_k=3)
+    logging.info(f"Discovery stage - User message: {message}")
     
-    # Convert to ProductMatch objects
+    # Detect product category
+    category_info = await detect_category(message)
+    detected_category = category_info.get("category", "general")
+    
+    # Update state with detected category
+    if "product_category" not in state.discovered_requirements:
+        state.discovered_requirements["product_category"] = detected_category
+        logging.info(f"Set product category to: {detected_category}")
+    
+    # Search for products in the specific category
+    current_category = state.discovered_requirements.get("product_category", "general")
+    products = await hybrid_search(message, top_k=5, category=current_category)
+    
+    logging.info(f"Found {len(products)} products in category '{current_category}'")
+    for i, p in enumerate(products[:3]):
+        logging.info(f"Product {i+1}: {p.get('name', 'Unknown')} - {list(p.keys())}")
+    
+    # Convert to ProductMatch objects with all available fields
     product_matches = []
     for p in products:
-        product_matches.append(ProductMatch(
-            name=p.get("name", "Unknown Product"),
-            description=p.get("description", ""),
-            price=float(p.get("price", 0)) if p.get("price") else 0.0
-        ))
+        # Create a comprehensive product match with all available fields
+        product_data = {
+            "name": p.get("name", "Unknown Product"),
+            "description": p.get("description", ""),
+            "price": float(p.get("price", 0)) if p.get("price") and str(p.get("price", "")).replace(".", "").replace("-", "").isdigit() else 0.0,
+            "score": 1.0
+        }
+        
+        # Add all other fields as additional attributes for frontend display
+        for key, value in p.items():
+            if key not in ["name", "description", "price", "description_vector"] and value:
+                product_data[key] = value
+        
+        product_match = ProductMatch(**{k: v for k, v in product_data.items() if k in ["name", "description", "price", "score"]})
+        # Add extra fields for frontend display
+        for key, value in product_data.items():
+            if key not in ["name", "description", "price", "score"]:
+                setattr(product_match, key, value)
+        
+        product_matches.append(product_match)
     
     # Update requirements
     intent = await classify_intent(message)
@@ -124,12 +181,30 @@ async def handle_discovery_stage(state: ConversationState, message: str) -> Conv
     )
     response_text = await asyncio.to_thread(llm.generate_content, prompt)
     
-    # Check if we should move to quote stage
-    quote_keywords = ["price", "cost", "quote", "buy", "purchase", "order", "how much"]
-    if any(keyword in message.lower() for keyword in quote_keywords) and len(product_matches) > 0:
+    # Enhanced stage transition logic
+    quote_keywords = ["price", "cost", "quote", "buy", "purchase", "order", "how much", "get this", "i want", "i'll take", "looks good", "perfect", "interested"]
+    confirmation_keywords = ["yes", "ok", "sure", "sounds good", "that works", "perfect"]
+    
+    message_lower = message.lower()
+    should_transition = False
+    
+    if any(keyword in message_lower for keyword in quote_keywords) and len(product_matches) > 0:
+        should_transition = True
+        logging.info("Stage transition triggered by quote keywords")
+    elif any(keyword in message_lower for keyword in confirmation_keywords) and len(product_matches) > 0:
+        should_transition = True
+        logging.info("Stage transition triggered by confirmation keywords")
+    elif len(re.findall(r'\b(this|that|it)\b', message_lower)) > 0 and len(product_matches) > 0:
+        should_transition = True
+        logging.info("Stage transition triggered by product reference")
+    
+    if should_transition:
         state.stage = ConversationStage.QUOTE
         state.selected_products = [p.model_dump() for p in product_matches]
-        state.total_price = sum(p.price for p in product_matches)
+        state.total_price = sum(p.price for p in product_matches if p.price > 0)
+        logging.info(f"Transitioned to QUOTE stage with {len(product_matches)} products, total: ${state.total_price}")
+    
+    logging.info(f"Current stage: {state.stage}")
     
     return ConversationResponse(
         message=response_text,
@@ -163,7 +238,7 @@ async def handle_quote_stage(state: ConversationState, message: str) -> Conversa
         next_questions=["Ready to place an order?", "Need any modifications?"]
     )
 
-async def handle_user_message(session_id: uuid.UUID, user_id: str, content: str, db_service: PostgresService) -> ConversationResponse:
+async def handle_user_message(session_id: uuid.UUID, content: str, db_service: PostgresService) -> ConversationResponse:
     """Main conversation handler with stage management."""
     # Get conversation state
     state = await get_conversation_state(session_id)
