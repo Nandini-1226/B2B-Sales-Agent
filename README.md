@@ -2,6 +2,16 @@
 
 A Retrieval-Augmented Generation (RAG) based B2B sales agent built with FastAPI, Streamlit, and Elasticsearch.
 
+## Future Updates
+
+- **Downloadable**: actual Quotation PDF and Pitch Deck PPT generation, and email service
+- **Multilingual Approach**: using toggle for static frontend elements and sending the language to backend for other elements
+- **Production grade**: Improving scalability using fallbacks, logging, modular code, caching
+- **TTS/STT**: Adding an option to the chat using Elevenlabs for TTS and STT services
+- **Enhancing backend**: Making the chatbot better at reading sentiment and searching products more accurately
+- **User Details**: Creating user personas and adding user authentication
+- **Scalability**: Using docker containerisation, load balancer, and advanced CI/CD tools
+
 ## 🚀 Features
 
 - **Hybrid Search**: Combines text search and vector search using Reciprocal Rank Fusion (RRF)
@@ -30,46 +40,14 @@ Frontend (Streamlit) ↔ Backend (FastAPI) ↔ Database (PostgreSQL)
 
 ## 🛠️ Quick Setup
 
-1. **Set Environment Variables**:
-```powershell
-$Env:DATABASE_URL = "postgresql://user:password@localhost:5432/sales_agent"
-$Env:GEMINI_API_KEY = "your-gemini-api-key"
-```
-
-2. **Run Setup**:
+1. **Run Setup**:
 ```bash
 python setup.py
 ```
 
-3. **Start the Application**:
+2. **Start the Application**:
 ```bash
 python run.py
-```
-
-## 🔧 Manual Setup
-
-1. **Install Dependencies**:
-```bash
-pip install -r requirements.txt
-```
-
-2. **Setup Database**:
-   - Create PostgreSQL database
-   - Tables will be created automatically
-
-3. **Index Product Data**:
-```bash
-python backend/services/elasticsearch_service.py
-```
-
-4. **Start Backend**:
-```bash
-python -m uvicorn backend.main:app --reload
-```
-
-5. **Start Frontend**:
-```bash
-streamlit run frontend/chat_interface.py
 ```
 
 ## 💬 Usage
@@ -108,54 +86,6 @@ data/
 └── json/              # Product JSON files
 ```
 
-## 🧩 Components
-
-### Conversation Manager
-- Intent classification using LLM
-- Two-stage conversation flow (Discovery → Quote)
-- State management and context tracking
-
-### Hybrid Search
-- Text search using Elasticsearch multi-match
-- Vector search using dense vectors (mock implementation)
-- Reciprocal Rank Fusion for combining results
-
-### Product Retriever
-- Async wrapper for Elasticsearch operations
-- Handles different CSV schemas automatically
-- Fallback mechanisms for robustness
-
-## 🔍 Key Features
-
-- **Smart Product Indexing**: Handles different CSV column names automatically
-- **Conversation State**: Tracks customer requirements and selected products
-- **Intent Recognition**: Understands when to move between discovery and quote stages
-- **Responsive UI**: Modern chat interface with product displays
-- **Error Handling**: Graceful fallbacks when services are unavailable
-
-## 🚨 Troubleshooting
-
-**Backend won't start**:
-- Check DATABASE_URL is set correctly
-- Ensure PostgreSQL is running
-- Check GEMINI_API_KEY is valid
-
-**Search not working**:
-- Elasticsearch is optional; will use fallback
-- Check if product data is indexed
-
-**Frontend errors**:
-- Ensure backend is running on port 8000
-- Check browser console for errors
-
-## 🔮 Future Enhancements
-
-- Real vector embeddings (sentence-transformers)
-- User authentication
-- Product cart functionality
-- Email quote generation
-- Advanced analytics
-- Multi-language support
 
 ## 📝 Notes
 
